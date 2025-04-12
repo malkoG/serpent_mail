@@ -7,3 +7,10 @@ requires-python = ">=3.13"
 dependencies = [
     "django>=5.2",
 ]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.399",
+    "ruff>=0.11.5",
+    "ruff-lsp>=0.0.62",
+]

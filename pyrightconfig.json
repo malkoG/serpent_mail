@@ -1,0 +1,16 @@
+{
+    "pythonVersion": "3.12",
+    "pythonPlatform": "All",
+    "venvPath": "./.venv",
+    "typeCheckingMode": "standard",
+    "include": [
+        "src/",
+        "tests/"
+    ],
+    "exclude": [
+        "**/__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".venv"
+    ]
+}
