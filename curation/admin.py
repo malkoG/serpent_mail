@@ -26,6 +26,22 @@ def summarize_selected_articles(modeladmin, request, queryset):
         modeladmin.message_user(request, error_message, messages.WARNING)
 
 
+@admin.action(description="Translate summary to Korean (OpenAI) for selected articles")
+def translate_selected_articles(modeladmin, request, queryset):
+    success_count = 0
+    errors = []
+    for article in queryset:
+        result = article.translate_summary_to_korean()
+        if "Error" not in result and "No summary" not in result:
+            success_count += 1
+        elif "Error" in result:
+            errors.append(f"'{article.title or article.url[:50]}' ({article.id}): {result}")
+    if success_count > 0:
+         modeladmin.message_user(request, f"Submitted translation via OpenAI for {success_count} article(s).", messages.SUCCESS)
+    if errors:
+         modeladmin.message_user(request, "Errors during OpenAI translation:\n" + "\n".join(errors), messages.WARNING)
+
+
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
     list_display = ('url', 'title', 'summary_preview', 'summary_ko_preview', 'reading_time_minutes', 'updated_at', 'created_at')
@@ -54,3 +70,11 @@ class ArticleAdmin(admin.ModelAdmin):
             preview = obj.summary[:100]
             return f"{preview}..." if len(obj.summary) > 100 else preview
         return "No summary available"
+        
+    @admin.display(description='Korean Summary Preview')
+    def summary_ko_preview(self, obj):
+         if obj.summary_ko:
+            if obj.summary_ko.startswith("Translation Error"): return obj.summary_ko
+            preview = obj.summary_ko[:50]
+            return f"{preview}..." if len(obj.summary_ko) > 50 else preview
+         return "No Korean summary"
