@@ -14,7 +14,10 @@ class Article(models.Model):
     title = models.CharField(max_length=512, blank=True, help_text="Article title (can be fetched automatically or entered manually).")
     summary = models.TextField(blank=True, help_text="AI-generated summary of the article.")
     summary_ko = models.TextField(blank=True, help_text="Korean translation of the summary (via OpenAI).")
-    reading_time_minutes = models.PositiveIntegerField(null=True, blank=True, help_text="Estimated reading time in minutes.")
+    reading_time_minutes = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Estimated reading time in minutes (based on full article content)."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
