@@ -3,10 +3,10 @@ import requests
 import readtime
 from langchain.chains.summarize import load_summarize_chain
 from langchain_openai import ChatOpenAI
-from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.document_loaders.web_base import WebBaseLoader
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.document_loaders.base import Document
+from langchain_core.documents import Document
 import os
 
 
@@ -50,7 +50,7 @@ class Article(models.Model):
         try:
             # --- Step 1: Load Content ---
             loader = WebBaseLoader(self.url)
-            docs: list[Document] = loader.load() # Use type hint for clarity
+            docs = loader.load() # Load documents
 
             if not docs or not docs[0].page_content:
                 return "Error: No content could be loaded from the URL."
