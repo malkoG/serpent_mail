@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from .models import Article
 
 
-@admin.action(description="Fetch content and summarize selected articles")
+@admin.action(description="Fetch content, summarize, and translate selected articles")
 def summarize_selected_articles(modeladmin, request, queryset):
     success_count = 0
     errors = []
@@ -17,7 +17,7 @@ def summarize_selected_articles(modeladmin, request, queryset):
     if success_count > 0:
         modeladmin.message_user(
             request, 
-            f"Successfully summarized {success_count} article(s).", 
+            f"Successfully processed {success_count} article(s) (fetch, summarize, translate).", 
             messages.SUCCESS
         )
     
@@ -26,20 +26,6 @@ def summarize_selected_articles(modeladmin, request, queryset):
         modeladmin.message_user(request, error_message, messages.WARNING)
 
 
-@admin.action(description="Translate summary to Korean (OpenAI) for selected articles")
-def translate_selected_articles(modeladmin, request, queryset):
-    success_count = 0
-    errors = []
-    for article in queryset:
-        result = article.translate_summary_to_korean()
-        if "Error" not in result and "No summary" not in result:
-            success_count += 1
-        elif "Error" in result:
-            errors.append(f"'{article.title or article.url[:50]}' ({article.id}): {result}")
-    if success_count > 0:
-         modeladmin.message_user(request, f"Submitted translation via OpenAI for {success_count} article(s).", messages.SUCCESS)
-    if errors:
-         modeladmin.message_user(request, "Errors during OpenAI translation:\n" + "\n".join(errors), messages.WARNING)
 
 
 @admin.register(Article)
@@ -48,7 +34,7 @@ class ArticleAdmin(admin.ModelAdmin):
     list_filter = ('created_at', 'updated_at')
     search_fields = ('url', 'title', 'summary', 'summary_ko')
     readonly_fields = ('created_at', 'updated_at', 'summary', 'summary_ko', 'reading_time_minutes')
-    actions = [summarize_selected_articles, translate_selected_articles]
+    actions = [summarize_selected_articles]
     
     fieldsets = (
         ('Article Information', {
