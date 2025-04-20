@@ -24,11 +24,15 @@ class Article(models.Model):
     def __str__(self):
         return self.title or self.url
         
-    def calculate_reading_time(self):
-        """Calculates reading time based on the summary."""
-        if self.summary:
-            result = readtime.of_text(self.summary)
-            self.reading_time_minutes = result.minutes
+    def calculate_reading_time(self, full_text: str):
+        """Calculates reading time based on the provided text."""
+        if full_text:
+            try:
+                result = readtime.of_text(full_text)
+                self.reading_time_minutes = result.minutes
+            except Exception as e:
+                print(f"Error calculating reading time for article {self.id}: {e}")
+                self.reading_time_minutes = None # Set to None on calculation error
         else:
             self.reading_time_minutes = None
 
@@ -76,8 +80,9 @@ class Article(models.Model):
             summary_text = result.get('output_text', 'Error extracting summary.')
             self.summary = summary_text
             
-            # Calculate reading time
-            self.calculate_reading_time()
+            # Calculate reading time based on the full document text
+            full_text = " ".join([doc.page_content for doc in docs])
+            self.calculate_reading_time(full_text)
             
             self.save(update_fields=['title', 'summary', 'reading_time_minutes', 'updated_at'])
             
