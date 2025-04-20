@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_community.document_loaders.base import Document
 import os
 
 
@@ -38,66 +39,76 @@ class Article(models.Model):
 
     def fetch_and_summarize(self) -> str:
         """
-        Fetch content from the article URL, generate a summary using OpenAI,
-        and save the summary to the model.
-        
-        Returns:
-            str: Success message or error description
+        Fetches content, calculates reading time on full text, generates summary,
+        translates summary, and saves all results.
         """
-        # Check if URL exists
         if not self.url:
             return "Error: No URL provided."
-        
+
+        full_content_text = "" # Variable to hold the full text
+
         try:
-            # Load content from URL
+            # --- Step 1: Load Content ---
             loader = WebBaseLoader(self.url)
-            docs = loader.load()
-            
-            if not docs:
+            docs: list[Document] = loader.load() # Use type hint for clarity
+
+            if not docs or not docs[0].page_content:
                 return "Error: No content could be loaded from the URL."
-            
-            # Try to populate title if it's blank
+
+            full_content_text = docs[0].page_content # Store full text
+
             if not self.title and docs[0].metadata.get('title'):
                 self.title = docs[0].metadata.get('title')
-            
-            # Get OpenAI API key
+
+            # --- Step 2: Calculate Reading Time (on full content) ---
+            self.calculate_reading_time(full_content_text) # Call updated method
+
+            # --- Step 3: Generate Summary ---
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
-                return "Error: OpenAI API key not found in environment variables."
-            
-            # Initialize LLM
-            llm = ChatOpenAI(
-                api_key=api_key,
-                model_name="gpt-4o",
-                temperature=0.2
-            )
-            
-            # Create and run summarization chain
-            chain = load_summarize_chain(llm, chain_type="map_reduce")
-            result = chain.invoke(docs)
-            
-            # Extract and save summary
-            summary_text = result.get('output_text', 'Error extracting summary.')
-            self.summary = summary_text
-            
-            # Calculate reading time based on the full document text
-            full_text = " ".join([doc.page_content for doc in docs])
-            self.calculate_reading_time(full_text)
-            
-            self.save(update_fields=['title', 'summary', 'reading_time_minutes', 'updated_at'])
-            
-            return "Summary generated and saved successfully."
-            
+                self.save(update_fields=['title', 'reading_time_minutes', 'updated_at']) # Save what we have
+                return "Error: OpenAI API key not found. Title/Reading Time saved."
+
+            llm_summarize = ChatOpenAI(api_key=api_key, model_name="gpt-4o", temperature=0.2)
+            chain_summarize = load_summarize_chain(llm_summarize, chain_type="map_reduce")
+            summary_result = chain_summarize.invoke(docs)
+            summary_text = summary_result.get('output_text', '')
+
+            if not summary_text:
+                self.summary = ""
+                self.summary_ko = ""
+                self.save(update_fields=['title', 'summary', 'summary_ko', 'reading_time_minutes', 'updated_at'])
+                return "Error extracting summary. Other details saved."
+
+            self.summary = summary_text # Set summary
+
+            # --- Step 4: Translate Summary (immediately after generation) ---
+            translation_status = self.translate_summary_to_korean() # Call translation
+            print(f"Translation status for article {self.id}: {translation_status}")
+            translation_failed = "Error" in translation_status
+
+            # --- Step 5: Final Save ---
+            self.save(update_fields=[ # Save everything together
+                'title',
+                'summary',
+                'summary_ko', # Make sure ko summary is saved
+                'reading_time_minutes',
+                'updated_at'
+            ])
+
+            final_message = "Fetch, Read Time, Summary completed."
+            final_message += " Translation failed." if translation_failed else " Translation completed."
+            return final_message
+
         except requests.exceptions.RequestException as e:
-            self.reading_time_minutes = None
-            return f"Error fetching URL: {str(e)}"
+             return f"Error fetching URL: {str(e)}"
         except ImportError as e:
-            self.reading_time_minutes = None
             return f"Error with required libraries: {str(e)}"
         except Exception as e:
-            self.reading_time_minutes = None
-            self.save(update_fields=['reading_time_minutes'])
-            return f"Unexpected error: {str(e)}"
+             print(f"Unexpected error during fetch/summarize/translate for {self.id}: {e}")
+             # Optionally try saving minimal info on unexpected error:
+             # self.save(update_fields=['title', 'reading_time_minutes', 'summary', 'summary_ko', 'updated_at'])
+             return f"Unexpected error processing article: {str(e)}"
             
     def translate_summary_to_korean(self):
         """Translates the summary to Korean using the OpenAI API via Langchain."""
