@@ -12,6 +12,7 @@ dependencies = [
     "langchain-openai>=0.3.0,<0.4.0",
     "lxml>=5.3.2",
     "psycopg2-binary>=2.9.10",
+    "readtime>=3.0.0",
     "requests>=2.32.3",
     "tiktoken>=0.9.0",
     "whitenoise>=6.9.0",
