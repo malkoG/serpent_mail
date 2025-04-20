@@ -28,18 +28,18 @@ def summarize_selected_articles(modeladmin, request, queryset):
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ('url', 'title', 'summary_preview', 'updated_at', 'created_at')
+    list_display = ('url', 'title', 'summary_preview', 'summary_ko_preview', 'reading_time_minutes', 'updated_at', 'created_at')
     list_filter = ('created_at', 'updated_at')
-    search_fields = ('url', 'title', 'summary')
-    readonly_fields = ('created_at', 'updated_at', 'summary')
-    actions = [summarize_selected_articles]
+    search_fields = ('url', 'title', 'summary', 'summary_ko')
+    readonly_fields = ('created_at', 'updated_at', 'summary', 'summary_ko', 'reading_time_minutes')
+    actions = [summarize_selected_articles, translate_selected_articles]
     
     fieldsets = (
         ('Article Information', {
             'fields': ('url', 'title')
         }),
-        ('Generated Summary', {
-            'fields': ('summary',),
+        ('Generated Content', {
+            'fields': ('summary', 'summary_ko', 'reading_time_minutes'),
             'classes': ('collapse',)
         }),
         ('Metadata', {

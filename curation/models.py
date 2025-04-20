@@ -1,5 +1,6 @@
 from django.db import models
 import requests
+import readtime
 from langchain.chains.summarize import load_summarize_chain
 from langchain_openai import ChatOpenAI
 from langchain_community.document_loaders import WebBaseLoader
@@ -10,11 +11,20 @@ class Article(models.Model):
     url = models.URLField(unique=True, max_length=2048, help_text="The unique URL of the article.")
     title = models.CharField(max_length=512, blank=True, help_text="Article title (can be fetched automatically or entered manually).")
     summary = models.TextField(blank=True, help_text="AI-generated summary of the article.")
+    reading_time_minutes = models.PositiveIntegerField(null=True, blank=True, help_text="Estimated reading time in minutes.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.title or self.url
+        
+    def calculate_reading_time(self):
+        """Calculates reading time based on the summary."""
+        if self.summary:
+            result = readtime.of_text(self.summary)
+            self.reading_time_minutes = result.minutes
+        else:
+            self.reading_time_minutes = None
 
     def fetch_and_summarize(self) -> str:
         """
@@ -59,13 +69,21 @@ class Article(models.Model):
             # Extract and save summary
             summary_text = result.get('output_text', 'Error extracting summary.')
             self.summary = summary_text
-            self.save(update_fields=['title', 'summary', 'updated_at'])
+            
+            # Calculate reading time
+            self.calculate_reading_time()
+            
+            self.save(update_fields=['title', 'summary', 'reading_time_minutes', 'updated_at'])
             
             return "Summary generated and saved successfully."
             
         except requests.exceptions.RequestException as e:
+            self.reading_time_minutes = None
             return f"Error fetching URL: {str(e)}"
         except ImportError as e:
+            self.reading_time_minutes = None
             return f"Error with required libraries: {str(e)}"
         except Exception as e:
+            self.reading_time_minutes = None
+            self.save(update_fields=['reading_time_minutes'])
             return f"Unexpected error: {str(e)}"
